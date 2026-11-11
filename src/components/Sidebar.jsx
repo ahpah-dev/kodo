@@ -43,6 +43,7 @@ export default function Sidebar({
   onClose,
   onOpenSettings,
   workspace,
+  onOpenFolder,
 }) {
   const [query, setQuery] = useState('')
   const [collapsed, setCollapsed] = useState(false)
@@ -80,6 +81,23 @@ export default function Sidebar({
           </button>
         </div>
 
+        <button type="button" className="repo-card" onClick={onOpenFolder} title="Open another folder (⌘O)">
+          <span className="repo-icon">
+            <Icon name="folder" size={15} />
+          </span>
+          <span className="repo-text">
+            <span className="repo-row">
+              <span className="repo-name">{workspace.name}</span>
+              {workspace.branch && <span className="repo-branch">{workspace.branch}</span>}
+              {workspace.ahead > 0 && <span className="repo-ahead">↑{workspace.ahead}</span>}
+            </span>
+            <span className="repo-path" title={workspace.path}>
+              {workspace.path}
+            </span>
+          </span>
+          <Icon name="chevronDown" size={13} className="repo-chev" />
+        </button>
+
         <button type="button" className="new-btn" onClick={onNew}>
           <Icon name="plus" size={15} strokeWidth={2} />
           <span>New session</span>
@@ -115,17 +133,6 @@ export default function Sidebar({
         </nav>
 
         <div className="side-foot">
-          <div className="repo-card">
-            <div className="repo-row">
-              <Icon name="git" size={14} />
-              <span className="repo-name">{workspace.name}</span>
-              {workspace.branch && <span className="repo-branch">{workspace.branch}</span>}
-            </div>
-            <div className="repo-meta">
-              <span className="repo-path">{workspace.path}</span>
-              {workspace.ahead > 0 && <span className="repo-ahead">↑{workspace.ahead}</span>}
-            </div>
-          </div>
           <button type="button" className="side-settings" onClick={onOpenSettings}>
             <Icon name="settings" size={15} />
             <span>Settings</span>

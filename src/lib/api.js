@@ -18,6 +18,7 @@ export const api = {
   oauthStart: (provider) => request('POST', '/api/oauth/start', { provider }),
   approve: (id, allow) => request('POST', '/api/approve', { id, allow }),
   setWorkspace: (path) => request('POST', '/api/workspace', { path }),
+  browse: (path) => request('GET', '/api/browse' + (path ? '?path=' + encodeURIComponent(path) : '')),
   files: () => request('GET', '/api/files'),
   changes: () => request('GET', '/api/changes'),
   commit: (message) => request('POST', '/api/commit', { message }),

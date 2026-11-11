@@ -6,6 +6,7 @@
 @import './styles/panel.css';
 @import './styles/overlay.css';
 @import './styles/providers.css';
+@import './styles/polish.css';
 
 #root {
   isolation: isolate;

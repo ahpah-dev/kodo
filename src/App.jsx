@@ -5,6 +5,7 @@ import Message from './components/Message'
 import RightPanel from './components/RightPanel'
 import Settings from './components/Settings'
 import CommandPalette from './components/CommandPalette'
+import FolderPicker from './components/FolderPicker'
 import Icon from './components/Icon'
 import { runAgent, titleFor } from './lib/agent'
 import { api } from './lib/api'
@@ -24,12 +25,12 @@ const STATUS_LABEL = {
 
 const SESSIONS_KEY = 'kodo.sessions.v2'
 
-function newSessionObject(model) {
+function newSessionObject(model, workspace) {
   const now = Date.now()
-  return { id: uid('s'), title: 'New session', created: now, updatedAt: now, model, tokens: 0, lastInput: 0, messages: [] }
+  return { id: uid('s'), title: 'New session', workspace, created: now, updatedAt: now, model, tokens: 0, lastInput: 0, messages: [] }
 }
 
-function loadSessions(model) {
+function loadSessions() {
   try {
     const raw = JSON.parse(localStorage.getItem(SESSIONS_KEY) || '[]')
     if (Array.isArray(raw) && raw.length) {
@@ -55,12 +56,12 @@ function loadSessions(model) {
   } catch {
     /* fall through */
   }
-  return [newSessionObject(model)]
+  return []
 }
 
 export default function App() {
   const [model, setModel] = useState(() => localStorage.getItem('kodo.model') || '')
-  const [sessions, setSessions] = useState(() => loadSessions(localStorage.getItem('kodo.model') || ''))
+  const [sessions, setSessions] = useState(loadSessions)
   const [activeId, setActiveId] = useState(() => sessions0Id())
   const [busy, setBusy] = useState(false)
   const [status, setStatus] = useState('idle')
@@ -79,16 +80,18 @@ export default function App() {
   const [modelErrors, setModelErrors] = useState({})
   const [modelsLoading, setModelsLoading] = useState(false)
   const [rev, setRev] = useState(0)
+  const [pickerOpen, setPickerOpen] = useState(false)
 
   const abortRef = useRef(null)
   const composerRef = useRef(null)
   const scrollRef = useRef(null)
   const stickRef = useRef(true)
 
-  const active = useMemo(() => sessions.find((s) => s.id === activeId) || sessions[0] || null, [sessions, activeId])
+  const workspace = server?.workspace || { name: '…', path: '', branch: null, ahead: 0, git: false }
+  const visible = useMemo(() => sessions.filter((s) => s.workspace === workspace.path), [sessions, workspace.path])
+  const active = useMemo(() => visible.find((s) => s.id === activeId) || visible[0] || null, [visible, activeId])
   const messages = useMemo(() => active?.messages || [], [active])
   const activeModel = models.find((m) => m.id === model)
-  const workspace = server?.workspace || { name: '…', path: '', branch: null, ahead: 0, git: false }
 
   // ------------------------------------------------------------ server state
 
@@ -127,6 +130,31 @@ export default function App() {
     },
     [refreshState, refreshModels],
   )
+
+  // Every workspace gets its own sessions; adopt legacy ones and make sure one exists.
+  useEffect(() => {
+    const p = server?.workspace.path
+    if (!p) return
+    setSessions((prev) => {
+      const adopted = prev.map((s) => (s.workspace ? s : { ...s, workspace: p }))
+      return adopted.some((s) => s.workspace === p) ? adopted : [newSessionObject('', p), ...adopted]
+    })
+  }, [server?.workspace.path])
+
+  async function changeWorkspace(path) {
+    setPickerOpen(false)
+    if (path === workspace.path) return
+    abortRef.current?.abort()
+    try {
+      await api.setWorkspace(path)
+      setActiveId(null)
+      await refreshState()
+      setRev((r) => r + 1)
+      setToast({ kind: 'check', text: 'Opened ' + (path.split(/[\\/]/).filter(Boolean).pop() || path) })
+    } catch (e) {
+      setToast({ kind: 'error', text: e.message })
+    }
+  }
 
   // ------------------------------------------------------------ persistence
 
@@ -327,7 +355,7 @@ export default function App() {
 
   function newSession() {
     abortRef.current?.abort()
-    const s = newSessionObject(model)
+    const s = newSessionObject(model, workspace.path)
     setSessions((prev) => [s, ...prev])
     setActiveId(s.id)
     setSideOpen(false)
@@ -336,15 +364,10 @@ export default function App() {
 
   function deleteSession(id) {
     if (id === active?.id) abortRef.current?.abort()
-    const next = sessions.filter((s) => s.id !== id)
-    if (next.length === 0) {
-      const fresh = newSessionObject(model)
-      setSessions([fresh])
-      setActiveId(fresh.id)
-      return
-    }
-    setSessions(next)
-    if (id === active?.id) setActiveId(next[0].id)
+    const rest = visible.filter((s) => s.id !== id)
+    const fresh = rest.length ? null : newSessionObject(model, workspace.path)
+    setSessions((prev) => [...(fresh ? [fresh] : []), ...prev.filter((s) => s.id !== id)])
+    if (id === active?.id) setActiveId((fresh || rest[0]).id)
   }
 
   function retry() {
@@ -363,6 +386,9 @@ export default function App() {
       } else if (meta && e.key.toLowerCase() === 'n') {
         e.preventDefault()
         newSession()
+      } else if (meta && e.key.toLowerCase() === 'o') {
+        e.preventDefault()
+        setPickerOpen(true)
       } else if (meta && e.key === ',') {
         e.preventDefault()
         setSettingsOpen(true)
@@ -385,6 +411,7 @@ export default function App() {
 
   const actions = [
     { id: 'a1', group: 'Session', icon: 'plus', label: 'New session', hint: 'Start a fresh conversation', keys: '⌘N', run: newSession },
+    { id: 'a0', group: 'Workspace', icon: 'folder', label: 'Open folder…', hint: 'Switch the project kodo works in', keys: '⌘O', run: () => setPickerOpen(true) },
     { id: 'a2', group: 'Session', icon: 'search', label: 'Search sessions', hint: 'Find an earlier conversation', run: () => setSideOpen(true) },
     { id: 'a3', group: 'View', icon: 'panel', label: panelOpen ? 'Hide right panel' : 'Show right panel', hint: 'Changes, files, context', keys: '⌘B', run: () => setPanelOpen((v) => !v) },
     { id: 'a4', group: 'View', icon: 'diff', label: 'Open changes', hint: 'Review the working tree', run: () => openPanel('changes') },
@@ -401,7 +428,7 @@ export default function App() {
   return (
     <div className={'shell' + (panelOpen ? ' with-panel' : '')}>
       <Sidebar
-        sessions={sessions}
+        sessions={visible}
         activeId={active?.id}
         onSelect={(id) => {
           setActiveId(id)
@@ -414,6 +441,7 @@ export default function App() {
         onClose={() => setSideOpen(false)}
         onOpenSettings={() => setSettingsOpen(true)}
         workspace={workspace}
+        onOpenFolder={() => setPickerOpen(true)}
       />
 
       <main className="main">
@@ -423,10 +451,16 @@ export default function App() {
           </button>
 
           <div className="crumb">
-            <span className="crumb-repo">
-              <Icon name="git" size={13} />
+            <button
+              type="button"
+              className="crumb-repo ws-btn"
+              onClick={() => setPickerOpen(true)}
+              title={workspace.path + ' — open another folder (⌘O)'}
+            >
+              <Icon name="folder" size={13} />
               {workspace.name}
-            </span>
+              <Icon name="chevronDown" size={11} />
+            </button>
             {workspace.branch && (
               <>
                 <Icon name="chevronRight" size={11} className="crumb-sep" />
@@ -599,10 +633,18 @@ export default function App() {
         server={server}
         onRefresh={refreshAll}
         onToast={setToast}
-        onWorkspace={() => {
-          refreshState()
-          setRev((r) => r + 1)
+        onOpenFolder={() => {
+          setSettingsOpen(false)
+          setPickerOpen(true)
         }}
+      />
+
+      <FolderPicker
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        current={workspace.path}
+        recents={server?.recents}
+        onPick={changeWorkspace}
       />
 
       {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} actions={actions} />}

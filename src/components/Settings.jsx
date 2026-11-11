@@ -265,10 +265,9 @@ export default function Settings({
   server,
   onRefresh,
   onToast,
-  onWorkspace,
+  onOpenFolder,
 }) {
-  const [dirEdit, setDir] = useState(null)
-  const dir = dirEdit ?? server?.workspace.path ?? ''
+  const [tab, setTab] = useState('providers')
 
   useEffect(() => {
     function onKey(e) {
@@ -294,90 +293,107 @@ export default function Settings({
   const providers = server?.providers || []
   const redirectUri = window.location.origin + '/oauth/callback'
 
-  async function changeDir() {
-    try {
-      await api.setWorkspace(dir)
-      setDir(null)
-      onToast({ kind: 'check', text: 'Workspace changed' })
-      onWorkspace()
-    } catch (e) {
-      onToast({ kind: 'error', text: e.message })
-    }
-  }
+  const TABS = [
+    { id: 'providers', label: 'Providers', icon: 'bolt', note: providers.filter((p) => p.configured).length || '' },
+    { id: 'agent', label: 'Agent', icon: 'cpu' },
+    { id: 'appearance', label: 'Appearance', icon: 'sun' },
+    { id: 'about', label: 'About', icon: 'logo' },
+  ]
 
   return (
     <div className="set-scrim" onMouseDown={onClose}>
-      <div className="settings" onMouseDown={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-        <header className="set-head">
-          <div>
-            <h2>Settings</h2>
-            <p>Your keys are stored on this machine and sent only to the provider you choose.</p>
-          </div>
-          <button type="button" className="icon-btn" onClick={onClose} title="Close settings">
-            <Icon name="x" size={16} />
-          </button>
-        </header>
+      <div className="settings" onMouseDown={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Settings">
+        <nav className="set-nav">
+          <div className="set-nav-title">Settings</div>
+          {TABS.map((t) => (
+            <button key={t.id} type="button" className={'set-tab' + (tab === t.id ? ' active' : '')} onClick={() => setTab(t.id)}>
+              <Icon name={t.icon} size={14} />
+              <span>{t.label}</span>
+              {t.note ? <span className="set-tab-note">{t.note}</span> : null}
+            </button>
+          ))}
+        </nav>
 
-        <div className="set-body">
-          <section className="set-section">
-            <h3 className="set-h3">Model providers</h3>
-            <div className="prov-list">
-              {providers.map((p) => (
-                <ProviderCard key={p.id + p.baseUrl + p.configured} p={p} onChanged={() => onRefresh(true)} onToast={onToast} error={modelErrors?.[p.id]} />
-              ))}
-              <CustomForm redirectUri={redirectUri} onDone={() => onRefresh(true)} onToast={onToast} />
+        <div className="set-pane">
+          <header className="set-head">
+            <div>
+              <h2>{TABS.find((t) => t.id === tab).label}</h2>
+              <p>
+                {tab === 'providers' && 'Keys stay on this machine and are only sent to the provider you choose.'}
+                {tab === 'agent' && 'Model, permissions and the project kodo works in.'}
+                {tab === 'appearance' && 'How kodo looks.'}
+                {tab === 'about' && 'Version and storage.'}
+              </p>
             </div>
-            {server?.configPath && <p className="set-note">Credentials file: {server.configPath}</p>}
-          </section>
+            <button type="button" className="icon-btn" onClick={onClose} title="Close settings">
+              <Icon name="x" size={16} />
+            </button>
+          </header>
 
-          <section className="set-section">
-            <h3 className="set-h3">Agent</h3>
-            <Row title="Default model" desc={modelsLoading ? 'Loading models…' : models.length + ' available from your providers.'}>
-              <select className="select" value={model} onChange={(e) => onModel(e.target.value)} aria-label="Default model" disabled={!models.length}>
-                {!models.some((m) => m.id === model) && <option value={model}>{model || 'No models available'}</option>}
-                {models.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name} · {m.providerName}
-                  </option>
-                ))}
-              </select>
-            </Row>
-            <Row title="Auto-approve edits and commands" desc="Off: kodo asks before writing files or running shell commands. Reads always run.">
-              <Toggle on={autoApprove} onChange={onAutoApprove} label="Auto-approve tools" />
-            </Row>
-            <Row title="Workspace folder" desc="The agent can read and edit files under this folder.">
-              <div className="dir-ctl">
-                <input className="input mono" value={dir} onChange={(e) => setDir(e.target.value)} aria-label="Workspace folder" />
-                <button type="button" className="btn" disabled={!dir.trim() || dir === server?.workspace.path} onClick={changeDir}>
-                  Use
-                </button>
-              </div>
-            </Row>
-          </section>
+          <div className="set-body">
+            {tab === 'providers' && (
+              <section className="set-section">
+                <div className="prov-list">
+                  {providers.map((p) => (
+                    <ProviderCard key={p.id + p.baseUrl + p.configured} p={p} onChanged={() => onRefresh(true)} onToast={onToast} error={modelErrors?.[p.id]} />
+                  ))}
+                  <CustomForm redirectUri={redirectUri} onDone={() => onRefresh(true)} onToast={onToast} />
+                </div>
+              </section>
+            )}
 
-          <section className="set-section">
-            <h3 className="set-h3">Appearance</h3>
-            <Row title="Theme" desc="Match your terminal or go light.">
-              <div className="seg">
-                {[
-                  { id: 'dark', label: 'Dark', icon: 'moon' },
-                  { id: 'light', label: 'Light', icon: 'sun' },
-                ].map((t) => (
-                  <button key={t.id} type="button" className={'seg-btn' + (theme === t.id ? ' active' : '')} onClick={() => onTheme(t.id)}>
-                    <Icon name={t.icon} size={13} />
-                    {t.label}
+            {tab === 'agent' && (
+              <section className="set-section">
+                <Row title="Default model" desc={modelsLoading ? 'Loading models…' : models.length + ' available from your providers.'}>
+                  <select className="select" value={model} onChange={(e) => onModel(e.target.value)} aria-label="Default model" disabled={!models.length}>
+                    {!models.some((m) => m.id === model) && <option value={model}>{model || 'No models available'}</option>}
+                    {models.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name} · {m.providerName}
+                      </option>
+                    ))}
+                  </select>
+                </Row>
+                <Row title="Auto-approve edits and commands" desc="Off: kodo asks before writing files or running shell commands. Reads always run.">
+                  <Toggle on={autoApprove} onChange={onAutoApprove} label="Auto-approve tools" />
+                </Row>
+                <Row title="Workspace folder" desc={server?.workspace.path || ''}>
+                  <button type="button" className="btn" onClick={onOpenFolder}>
+                    <Icon name="folder" size={13} />
+                    Change…
                   </button>
-                ))}
-              </div>
-            </Row>
-          </section>
+                </Row>
+              </section>
+            )}
 
-          <section className="set-section">
-            <h3 className="set-h3">About</h3>
-            <Row title="kodo" desc="A lightweight, local-first coding agent.">
-              <span className="set-badge">v{server?.version || '—'}</span>
-            </Row>
-          </section>
+            {tab === 'appearance' && (
+              <section className="set-section">
+                <Row title="Theme" desc="Match your terminal or go light.">
+                  <div className="seg">
+                    {[
+                      { id: 'dark', label: 'Dark', icon: 'moon' },
+                      { id: 'light', label: 'Light', icon: 'sun' },
+                    ].map((t) => (
+                      <button key={t.id} type="button" className={'seg-btn' + (theme === t.id ? ' active' : '')} onClick={() => onTheme(t.id)}>
+                        <Icon name={t.icon} size={13} />
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                </Row>
+              </section>
+            )}
+
+            {tab === 'about' && (
+              <section className="set-section">
+                <Row title="kodo" desc="A lightweight, local-first coding agent.">
+                  <span className="set-badge">v{server?.version || '—'}</span>
+                </Row>
+                <Row title="Credentials file" desc={server?.configPath || ''} />
+                <Row title="Runtime" desc={'Node ' + (server?.node || '').replace(/^v/, '') + ' · ' + (server?.platform || '')} />
+              </section>
+            )}
+          </div>
         </div>
       </div>
     </div>

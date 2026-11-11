@@ -4,7 +4,7 @@ A small, local-first coding agent. Bring your own model — API key or OAuth —
 
 Built with React 19 + Vite 8 and a zero-dependency Node server. No Tailwind, no markdown library, no UI kit, no provider SDKs.
 
-![kodo](https://img.shields.io/badge/version-0.2.0-b7f26b)
+![kodo](https://img.shields.io/badge/version-0.3.0-b7f26b)
 
 ## Features
 
@@ -17,6 +17,8 @@ Built with React 19 + Vite 8 and a zero-dependency Node server. No Tailwind, no 
 - **Responsive** — the sidebar becomes a drawer and the panel becomes an overlay below 1180px / 900px.
 - **Real models, your keys** — Anthropic, OpenAI, Google Gemini, OpenRouter, Ollama, or any OpenAI-/Anthropic-compatible endpoint. Model lists are fetched live from each provider.
 - **Real agent** — the server runs a tool-use loop (read, glob, grep, edit, write, bash) confined to your workspace folder. Edits and shell commands ask for approval (shown as a diff or the exact command) unless you turn on auto-approve.
+- **Open any folder** — a built-in folder browser (`⌘O`) with recents, drives and git markers. Sessions are kept per project.
+- **Offline-ready UI** — Inter and JetBrains Mono are bundled; nothing is fetched from a CDN.
 - **Live workspace** — the Changes panel is `git diff` of your actual repo, with a working commit box; the file tree is your real folder.
 
 ## Models and sign-in
@@ -43,7 +45,7 @@ Download `kodo.exe` from [Releases](../../releases), then double-click it. It st
 
 ```
 kodo.exe                 # default port, opens the browser
-kodo.exe --dir C:path	oproject   # workspace the agent may edit (default: current folder)
+kodo.exe --dir C:\path\to\project   # start in a specific folder (or pick one in the app with Ctrl+O)
 kodo.exe --port 8080     # a different port
 kodo.exe --no-open       # don't launch a browser
 kodo.exe --host 0.0.0.0  # bind to all interfaces (requires the access-token URL it prints)

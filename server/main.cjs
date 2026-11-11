@@ -110,10 +110,76 @@ const index = files.get('/index.html')
 
 // ---------------------------------------------------------------- state + guards
 
-let root = path.resolve(value('--dir', process.cwd()))
-if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) {
-  process.stderr.write(`kodo: workspace is not a directory: ${root}\n`)
-  process.exit(1)
+const isDir = (p) => {
+  try {
+    return fs.statSync(p).isDirectory()
+  } catch {
+    return false
+  }
+}
+
+const insideRepo = (dir) => {
+  for (let d = dir; ; d = path.dirname(d)) {
+    if (fs.existsSync(path.join(d, '.git'))) return true
+    if (path.dirname(d) === d) return false
+  }
+}
+
+// --dir wins; otherwise the current folder, unless that is not a project and a
+// previously opened workspace exists (e.g. kodo.exe was double-clicked).
+let root = path.resolve(process.cwd())
+if (flag('--dir')) {
+  root = path.resolve(value('--dir', root))
+  if (!isDir(root)) {
+    process.stderr.write(`kodo: workspace is not a directory: ${root}\n`)
+    process.exit(1)
+  }
+} else {
+  const last = config.load().lastWorkspace
+  if (last && isDir(last) && !insideRepo(root) && !fs.existsSync(path.join(root, 'package.json'))) root = last
+}
+
+function remember(dir) {
+  const cfg = config.load()
+  cfg.lastWorkspace = dir
+  cfg.recentWorkspaces = [dir, ...(cfg.recentWorkspaces || []).filter((d) => d !== dir)].slice(0, 12)
+  config.save()
+}
+remember(root)
+
+// Folder browser for the "Open folder" dialog.
+function browse(target) {
+  const home = require('node:os').homedir()
+  const dir = path.resolve(target || root)
+  if (!isDir(dir)) throw httpErr(400, 'Not a folder: ' + dir)
+  let entries
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true })
+  } catch (e) {
+    throw httpErr(400, e.code === 'EACCES' || e.code === 'EPERM' ? 'No permission to open ' + dir : e.message)
+  }
+  const dirs = entries
+    .filter((e) => e.isDirectory() && !e.name.startsWith('.') && !e.name.startsWith('$') && e.name !== 'node_modules')
+    .map((e) => {
+      const full = path.join(dir, e.name)
+      return { name: e.name, path: full, git: fs.existsSync(path.join(full, '.git')) }
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
+  const parent = path.dirname(dir) === dir ? null : path.dirname(dir)
+  const roots = []
+  if (process.platform === 'win32') {
+    for (let c = 65; c <= 90; c++) {
+      const d = String.fromCharCode(c) + ':\\'
+      if (fs.existsSync(d)) roots.push({ name: d, path: d })
+    }
+  } else roots.push({ name: '/', path: '/' })
+  const places = [
+    { name: 'Home', path: home },
+    ...['Desktop', 'Documents', 'Downloads', 'Projects', 'dev', 'code', 'src', 'repos']
+      .map((n) => ({ name: n, path: path.join(home, n) }))
+      .filter((p) => isDir(p.path)),
+  ]
+  return { path: dir, parent, entries: dirs, roots, places, git: fs.existsSync(path.join(dir, '.git')) }
 }
 
 const host = value('--host', '127.0.0.1')
@@ -219,6 +285,7 @@ async function api(req, res, url, query) {
       remote,
       configPath: config.file,
       workspace: await workspace.info(root),
+      recents: (config.load().recentWorkspaces || []).filter(isDir).map((p) => ({ path: p, name: path.basename(p) || p })),
       providers: providers.listProviders().map(providers.publicInfo),
     })
   }
@@ -226,10 +293,13 @@ async function api(req, res, url, query) {
   if (m === 'POST' && url === '/api/workspace') {
     const body = await readJson(req)
     const next = path.resolve(String(body.path || ''))
-    if (!fs.existsSync(next) || !fs.statSync(next).isDirectory()) throw httpErr(400, 'Not a directory: ' + next)
+    if (!isDir(next)) throw httpErr(400, 'Not a directory: ' + next)
     root = next
+    remember(root)
     return send(res, 200, { workspace: await workspace.info(root) })
   }
+
+  if (m === 'GET' && url === '/api/browse') return send(res, 200, browse(query.get('path') || ''))
 
   if (m === 'POST' && url === '/api/providers') {
     const body = await readJson(req)
