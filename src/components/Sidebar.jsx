@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import Icon from './Icon'
-import { workspace } from '../lib/workspace'
 
 function timeGroup(label, sessions, activeId, onSelect, onDelete) {
   if (!sessions.length) return null
@@ -43,6 +42,7 @@ export default function Sidebar({
   open,
   onClose,
   onOpenSettings,
+  workspace,
 }) {
   const [query, setQuery] = useState('')
   const [collapsed, setCollapsed] = useState(false)
@@ -54,11 +54,13 @@ export default function Sidebar({
   }, [sessions, query])
 
   const groups = useMemo(() => {
-    const now = filtered.slice(0, 2)
-    const rest = filtered.slice(2)
-    const week = rest.slice(0, 3)
-    const older = rest.slice(3)
-    return { now, week, older }
+    const startOfToday = new Date().setHours(0, 0, 0, 0)
+    const sorted = [...filtered].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+    return {
+      now: sorted.filter((s) => (s.updatedAt || 0) >= startOfToday),
+      week: sorted.filter((s) => (s.updatedAt || 0) < startOfToday && (s.updatedAt || 0) >= startOfToday - 6 * 864e5),
+      older: sorted.filter((s) => (s.updatedAt || 0) < startOfToday - 6 * 864e5),
+    }
   }, [filtered])
 
   return (
@@ -107,7 +109,7 @@ export default function Sidebar({
             </div>
           )}
           {!query && timeGroup('Today', groups.now, activeId, onSelect, onDelete)}
-          {!query && timeGroup('This week', groups.week, activeId, onSelect, onDelete)}
+          {!query && timeGroup('Last 7 days', groups.week, activeId, onSelect, onDelete)}
           {!query && timeGroup('Earlier', groups.older, activeId, onSelect, onDelete)}
           {!!query && timeGroup('Results', filtered, activeId, onSelect, onDelete)}
         </nav>
@@ -117,11 +119,11 @@ export default function Sidebar({
             <div className="repo-row">
               <Icon name="git" size={14} />
               <span className="repo-name">{workspace.name}</span>
-              <span className="repo-branch">{workspace.branch}</span>
+              {workspace.branch && <span className="repo-branch">{workspace.branch}</span>}
             </div>
             <div className="repo-meta">
               <span className="repo-path">{workspace.path}</span>
-              <span className="repo-ahead">↑{workspace.ahead}</span>
+              {workspace.ahead > 0 && <span className="repo-ahead">↑{workspace.ahead}</span>}
             </div>
           </div>
           <button type="button" className="side-settings" onClick={onOpenSettings}>

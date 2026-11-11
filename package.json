@@ -1,14 +1,15 @@
 {
   "name": "kodo",
   "private": true,
-  "version": "0.1.0",
-  "description": "A lightweight, local-first coding agent UI.",
+  "version": "0.2.0",
+  "description": "A lightweight, local-first coding agent with real models (BYOK and OAuth).",
   "license": "Unlicense",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "start": "node server/main.cjs",
+    "dev:server": "node server/main.cjs --api-only --no-open",
     "exe": "npm run build && node scripts/build-exe.mjs",
     "lint": "oxlint",
     "preview": "vite preview"

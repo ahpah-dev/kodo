@@ -5,6 +5,7 @@
 @import './styles/composer.css';
 @import './styles/panel.css';
 @import './styles/overlay.css';
+@import './styles/providers.css';
 
 #root {
   isolation: isolate;

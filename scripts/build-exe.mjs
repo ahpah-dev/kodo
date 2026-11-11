@@ -28,12 +28,22 @@ for (const file of files) {
 
 mkdirSync(outDir, { recursive: true })
 
+// SEA needs a single script, so bundle the server modules first.
+const { build } = await import('rolldown')
+const bundled = path.join(outDir, 'server.bundle.cjs')
+await build({
+  input: path.join(root, 'server', 'main.cjs'),
+  platform: 'node',
+  logLevel: 'warn',
+  output: { file: bundled, format: 'cjs' },
+})
+
 const configPath = path.join(root, 'sea-config.json')
 writeFileSync(
   configPath,
   JSON.stringify(
     {
-      main: path.join(root, 'server', 'main.cjs'),
+      main: bundled,
       output: outFile,
       disableExperimentalSEAWarning: true,
       useCodeCache: true,
@@ -52,6 +62,7 @@ const result = spawnSync(process.execPath, [`--build-sea=${configPath}`], {
 })
 
 rmSync(configPath, { force: true })
+rmSync(bundled, { force: true })
 
 if (result.status !== 0) {
   console.error('SEA build failed.')

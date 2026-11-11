@@ -1,11 +1,11 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import Icon from './Icon'
-import { models } from '../lib/workspace'
+import { formatCtx } from '../lib/workspace'
 
 const MAX_H = 184
 
 const Composer = forwardRef(function Composer(
-  { onSend, onStop, busy, status, model, onModel, placeholder },
+  { onSend, onStop, busy, status, model, models, modelsLoading, onModel, placeholder, workspaceName, autoApprove, onOpenChanges, onOpenSettings },
   ref,
 ) {
   const taRef = useRef(null)
@@ -13,8 +13,14 @@ const Composer = forwardRef(function Composer(
   const [scrolling, setScrolling] = useState(false)
   const [modelOpen, setModelOpen] = useState(false)
   const [focused, setFocused] = useState(false)
+  const [query, setQuery] = useState('')
 
-  const active = models.find((m) => m.id === model) || models[0]
+  const active = models.find((m) => m.id === model)
+  const shown = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    const list = q ? models.filter((m) => (m.name + ' ' + m.model + ' ' + m.providerName).toLowerCase().includes(q)) : models
+    return list.slice(0, 120)
+  }, [models, query])
 
   function resize() {
     const el = taRef.current
@@ -58,38 +64,72 @@ const Composer = forwardRef(function Composer(
             <button
               type="button"
               className="model-btn"
-              onClick={() => setModelOpen((v) => !v)}
+              onClick={() => {
+                setModelOpen((v) => !v)
+                setQuery('')
+              }}
               aria-expanded={modelOpen}
             >
-              <span className={'model-dot ' + active.tone} />
-              <span className="model-name">{active.name}</span>
-              <span className="model-provider">{active.provider}</span>
+              <span className={'model-dot ' + (active ? 'green' : 'amber')} />
+              <span className="model-name">
+                {active ? active.name : modelsLoading ? 'Loading models…' : 'Select a model'}
+              </span>
+              {active && <span className="model-provider">{active.providerName}</span>}
               <Icon name="chevronDown" size={12} className={'model-chev' + (modelOpen ? ' open' : '')} />
             </button>
             {modelOpen && (
               <>
                 <div className="popover-backdrop" onClick={() => setModelOpen(false)} />
                 <div className="model-menu">
-                  <div className="model-menu-label">Model</div>
-                  {models.map((m) => (
-                    <button
-                      key={m.id}
-                      type="button"
-                      className={'model-opt' + (m.id === model ? ' selected' : '')}
-                      onClick={() => {
-                        onModel(m.id)
-                        setModelOpen(false)
-                      }}
-                    >
-                      <span className={'model-dot ' + m.tone} />
-                      <span className="model-opt-main">
-                        <span className="model-opt-name">{m.name}</span>
-                        <span className="model-opt-prov">{m.provider}</span>
-                      </span>
-                      <span className="model-opt-ctx">{m.ctx}</span>
-                      {m.id === model && <Icon name="check" size={13} />}
-                    </button>
-                  ))}
+                  {models.length === 0 ? (
+                    <div className="model-empty">
+                      <p>{modelsLoading ? 'Loading models…' : 'No models yet. Add an API key or sign in to a provider.'}</p>
+                      {!modelsLoading && (
+                        <button
+                          type="button"
+                          className="btn primary"
+                          onClick={() => {
+                            setModelOpen(false)
+                            onOpenSettings()
+                          }}
+                        >
+                          Open settings
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      <input
+                        className="model-search"
+                        autoFocus
+                        placeholder={'Search ' + models.length + ' models…'}
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        aria-label="Search models"
+                      />
+                      <div className="model-list">
+                        {shown.map((m) => (
+                          <button
+                            key={m.id}
+                            type="button"
+                            className={'model-opt' + (m.id === model ? ' selected' : '')}
+                            onClick={() => {
+                              onModel(m.id)
+                              setModelOpen(false)
+                            }}
+                          >
+                            <span className="model-opt-main">
+                              <span className="model-opt-name">{m.name}</span>
+                              <span className="model-opt-prov">{m.providerName}</span>
+                            </span>
+                            <span className="model-opt-ctx">{formatCtx(m.ctx)}</span>
+                            {m.id === model && <Icon name="check" size={13} />}
+                          </button>
+                        ))}
+                        {shown.length === 0 && <div className="model-none">No models match “{query}”</div>}
+                      </div>
+                    </>
+                  )}
                 </div>
               </>
             )}
@@ -97,10 +137,10 @@ const Composer = forwardRef(function Composer(
 
           <div className="composer-hints">
             <span className="hint-chip">
-              <Icon name="folder" size={12} /> src
+              <Icon name="folder" size={12} /> {workspaceName}
             </span>
             <span className="hint-chip">
-              <Icon name="bolt" size={12} /> auto-approve off
+              <Icon name="bolt" size={12} /> {autoApprove ? 'auto-approve on' : 'asks before edits'}
             </span>
           </div>
         </div>
@@ -121,16 +161,9 @@ const Composer = forwardRef(function Composer(
 
         <div className="composer-bottom">
           <div className="composer-tools">
-            <button type="button" className="composer-icon" title="Attach context">
-              <Icon name="paperclip" size={15} />
-            </button>
-            <button type="button" className="composer-icon" title="Plan mode">
-              <Icon name="layers" size={15} />
-              <span className="composer-icon-label">Plan</span>
-            </button>
-            <button type="button" className="composer-icon" title="Review changes">
+            <button type="button" className="composer-icon" title="Review changes" onClick={onOpenChanges}>
               <Icon name="diff" size={15} />
-              <span className="composer-icon-label">Diff</span>
+              <span className="composer-icon-label">Changes</span>
             </button>
           </div>
 
@@ -144,7 +177,7 @@ const Composer = forwardRef(function Composer(
                 type="button"
                 className="send-btn"
                 onClick={submit}
-                disabled={!value.trim()}
+                disabled={!value.trim() || !model}
                 title="Send"
               >
                 <Icon name="arrowUp" size={16} strokeWidth={2.1} />

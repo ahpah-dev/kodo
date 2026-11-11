@@ -12,18 +12,22 @@ const ICONS = {
   tool: 'layers',
 }
 
-function Collapsible({ tool }) {
-  const [open, setOpen] = useState(false)
+function Collapsible({ tool, onDecide }) {
+  const [userOpen, setUserOpen] = useState(false)
   const running = tool.status === 'running'
+  const pending = tool.status === 'pending'
   const aborted = tool.status === 'aborted'
+  const denied = tool.status === 'denied'
+  const failed = tool.status === 'error'
   const hasBody = tool.diff || tool.output
+  const open = pending || userOpen
 
   return (
-    <div className={'tool' + (open ? ' is-open' : '')}>
+    <div className={'tool' + (open ? ' is-open' : '') + (failed ? ' is-failed' : '')}>
       <button
         type="button"
         className="tool-head"
-        onClick={() => hasBody && setOpen((v) => !v)}
+        onClick={() => hasBody && !pending && setUserOpen((v) => !v)}
         aria-expanded={open}
       >
         <span className={'tool-glyph ' + tool.name}>
@@ -40,8 +44,11 @@ function Collapsible({ tool }) {
             </span>
           </span>
         )}
+        {pending && <span className="tool-meta warn">needs approval</span>}
         {aborted && <span className="tool-meta warn">stopped</span>}
-        {hasBody && !running && (
+        {denied && <span className="tool-meta warn">denied</span>}
+        {failed && <span className="tool-meta err">failed</span>}
+        {hasBody && !running && !pending && (
           <Icon name="chevronRight" size={13} className={'tool-chev ' + (open ? 'open' : '')} />
         )}
       </button>
@@ -58,6 +65,17 @@ function Collapsible({ tool }) {
               ))}
             </pre>
           )}
+        </div>
+      )}
+      {pending && (
+        <div className="tool-approve">
+          <span>{tool.name === 'bash' ? 'Run this command?' : 'Apply this change?'}</span>
+          <button type="button" className="btn" onClick={() => onDecide?.(tool.approvalId || tool.id, false)}>
+            Deny
+          </button>
+          <button type="button" className="btn primary" onClick={() => onDecide?.(tool.approvalId || tool.id, true)}>
+            Allow
+          </button>
         </div>
       )}
     </div>

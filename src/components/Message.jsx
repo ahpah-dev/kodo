@@ -36,7 +36,7 @@ function AssistantText({ part }) {
   )
 }
 
-function MessageInner({ message, isLast, streaming, onRetry }) {
+function MessageInner({ message, isLast, streaming, onRetry, onDecide }) {
   const [copied, setCopied] = useState(false)
 
   if (message.role === 'user') {
@@ -84,7 +84,8 @@ function MessageInner({ message, isLast, streaming, onRetry }) {
 
         {parts.map((part) => {
           if (part.type === 'reasoning') return <Reasoning key={part.id} part={part} />
-          if (part.type === 'tool') return <ToolCard key={part.id} tool={part} />
+          if (part.type === 'tool') return <ToolCard key={part.id} tool={part} onDecide={onDecide} />
+          if (part.type === 'error') return <div key={part.id} className="msg-error">{part.text}</div>
           if (part.type === 'text') return <AssistantText key={part.id} part={part} />
           return null
         })}
@@ -97,7 +98,7 @@ function MessageInner({ message, isLast, streaming, onRetry }) {
           </div>
         )}
 
-        {!streaming && plain && (
+        {!streaming && (plain || isLast) && (
           <div className="msg-actions">
             <button type="button" onClick={copy} className="ghost-btn" title="Copy response">
               <Icon name={copied ? 'check' : 'copy'} size={14} />

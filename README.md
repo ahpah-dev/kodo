@@ -1,10 +1,10 @@
 # kodo
 
-A small, local-first coding agent UI. Chat with an agent, watch it read files, edit code, and run commands — in a single window.
+A small, local-first coding agent. Bring your own model — API key or OAuth — and watch it read files, edit code, and run commands in your project, in a single window.
 
-Built with React 19 + Vite 8. No Tailwind, no markdown library, no UI kit — about 300 kB of JavaScript and 38 kB of CSS, shipped as a static bundle.
+Built with React 19 + Vite 8 and a zero-dependency Node server. No Tailwind, no markdown library, no UI kit, no provider SDKs.
 
-![kodo](https://img.shields.io/badge/status-0.1.0-b7f26b)
+![kodo](https://img.shields.io/badge/version-0.2.0-b7f26b)
 
 ## Features
 
@@ -15,7 +15,25 @@ Built with React 19 + Vite 8. No Tailwind, no markdown library, no UI kit — ab
 - **Dark and light** — one set of design tokens, `data-theme` on `<html>`, remembered in `localStorage`.
 - **Keyboard first** — `⌘N` new session, `⌘B` toggle panel, `⌘,` settings, `Esc` to dismiss.
 - **Responsive** — the sidebar becomes a drawer and the panel becomes an overlay below 1180px / 900px.
-- **No dependencies at runtime** — the agent is simulated by a scripted plan engine in `src/lib/agent.js`; swap `runAgent` for a real transport and the UI works unchanged.
+- **Real models, your keys** — Anthropic, OpenAI, Google Gemini, OpenRouter, Ollama, or any OpenAI-/Anthropic-compatible endpoint. Model lists are fetched live from each provider.
+- **Real agent** — the server runs a tool-use loop (read, glob, grep, edit, write, bash) confined to your workspace folder. Edits and shell commands ask for approval (shown as a diff or the exact command) unless you turn on auto-approve.
+- **Live workspace** — the Changes panel is `git diff` of your actual repo, with a working commit box; the file tree is your real folder.
+
+## Models and sign-in
+
+Open **Settings** and pick one:
+
+| Provider | Sign-in |
+| --- | --- |
+| Anthropic, OpenAI, Google Gemini | API key (BYOK) |
+| OpenRouter | **OAuth (PKCE)** one-click sign-in, or API key |
+| Ollama | none — local server, default `http://localhost:11434` |
+| Custom | any OpenAI- or Anthropic-compatible base URL, with an API key or **generic OAuth 2.0 (PKCE)** using your own client ID, authorize/token URLs and scopes (register `http://127.0.0.1:4173/oauth/callback` as the redirect URI) |
+
+Keys can also come from `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY` / `GOOGLE_API_KEY` and `OPENROUTER_API_KEY`.
+Credentials are saved to `~/.kodo/config.json` (mode 0600, override the folder with `KODO_HOME`), never returned to the browser, and only sent to the provider you configured. Requests go from the local kodo server straight to the provider.
+
+Consumer subscription logins (Claude.ai, ChatGPT) are intentionally not offered: those providers don't allow third-party apps to use them.
 
 ## Run it
 
@@ -25,9 +43,10 @@ Download `kodo.exe` from [Releases](../../releases), then double-click it. It st
 
 ```
 kodo.exe                 # default port, opens the browser
+kodo.exe --dir C:path	oproject   # workspace the agent may edit (default: current folder)
 kodo.exe --port 8080     # a different port
 kodo.exe --no-open       # don't launch a browser
-kodo.exe --host 0.0.0.0  # bind to all interfaces
+kodo.exe --host 0.0.0.0  # bind to all interfaces (requires the access-token URL it prints)
 ```
 
 The executable is a Node.js single-executable application (SEA) with the built assets embedded — no install, no `node_modules`, nothing written to disk.
@@ -36,7 +55,8 @@ The executable is a Node.js single-executable application (SEA) with the built a
 
 ```bash
 npm install
-npm run dev      # http://localhost:5173
+npm run dev:server   # API on 127.0.0.1:4173 (needs no build with --api-only)
+npm run dev          # UI on http://localhost:5173, proxied to the API
 npm run build    # static output in dist/
 npm start        # serve dist/ at http://127.0.0.1:4173
 npm run exe      # build and package release/kodo.exe
@@ -48,26 +68,26 @@ Building the `.exe` requires Node.js 26 or newer, which added `node --build-sea`
 ## Layout
 
 ```
-server/main.cjs          static file server; reads assets from the SEA blob or dist/
-scripts/build-exe.mjs    bundles dist/ into a Node SEA → release/kodo.exe
-src/App.jsx              shell, session state, agent event handling, shortcuts
-src/lib/agent.js         scripted plans (explain / fix / review / verify / build)
-src/lib/markdown.jsx     dependency-free markdown renderer
-src/lib/workspace.js     seeded sessions, files, changes, models
+server/main.cjs          HTTP server: static assets, JSON API, OAuth callback, origin/host guard
+server/providers.cjs     provider presets, model listing, OAuth, Anthropic + OpenAI-style streaming
+server/agent.cjs         the agent loop and approval gate
+server/tools.cjs         read / glob / grep / edit / write / bash
+server/workspace.cjs     path safety, line diffs, git status/diff/commit, file tree
+server/config.cjs        ~/.kodo/config.json
+scripts/build-exe.mjs    bundles server + dist/ into a Node SEA → release/kodo.exe
+src/App.jsx              shell, sessions (persisted in localStorage), event handling
+src/lib/agent.js         client for the streaming /api/chat endpoint
 src/components/          Sidebar, Composer, Message, ToolCard, Diff,
                          RightPanel, CommandPalette, Settings, Icon
-src/styles/              tokens + one partial per surface
 ```
 
-The agent contract is a single function:
+The agent stream is newline-delimited JSON: `status`, `reasoning-*`, `text-*`, `tool-start`, `tool-update`, `tool-end`, `usage`, `error`, `done`. `App.jsx` folds those into message parts.
 
-```js
-await runAgent({ prompt, signal, emit })
-```
+## Safety
 
-`emit` receives `status`, `reasoning-start|delta|end`, `text-start|delta|end`,
-`tool-start|end`, and `done`. `App.jsx` folds those events into message parts,
-so a real backend only has to speak the same event shape.
+- The API only answers same-origin requests on loopback hosts (blocks cross-site and DNS-rebinding attacks).
+- File tools can't leave the workspace folder. Shell commands run with your user's permissions, so keep approvals on for untrusted projects and prompts.
+- `AGENTS.md` / `CLAUDE.md` in the workspace root is added to the system prompt.
 
 ## License
 
