@@ -1,0 +1,213 @@
+/* ============================================================
+   kodo — design tokens
+   ============================================================ */
+:root {
+  --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --r-sm: 7px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-xl: 18px;
+
+  --sidebar-w: 268px;
+  --panel-w: 352px;
+
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+:root[data-theme='dark'] {
+  --bg: #0a0a0b;
+  --bg-sunk: #08080a;
+  --panel: #0d0d0f;
+  --panel-2: #111113;
+  --raised: #151518;
+  --raised-2: #1a1a1e;
+  --hover: #ffffff0a;
+  --hover-2: #ffffff12;
+  --line: #ffffff0f;
+  --line-strong: #ffffff1c;
+
+  --text: #ececed;
+  --text-2: #b4b4bb;
+  --muted: #8b8b93;
+  --faint: #83838c;
+
+  --accent: #b7f26b;
+  --accent-ink: #17220a;
+  --accent-soft: #b7f26b1f;
+  --accent-line: #b7f26b40;
+
+  --green: #6ee7a8;
+  --green-soft: #6ee7a81a;
+  --amber: #f0c05a;
+  --amber-soft: #f0c05a1a;
+  --violet: #a79bff;
+  --violet-soft: #a79bff1a;
+  --red: #ff7a7a;
+  --red-soft: #ff7a7a1a;
+
+  --add-bg: #5ee08a14;
+  --add-fg: #8ce3ac;
+  --del-bg: #ff767614;
+  --del-fg: #ff9b9b;
+
+  --shadow-pop: 0 16px 48px -12px #000000cc, 0 0 0 1px #ffffff0d;
+  --shadow-soft: 0 1px 2px #00000060;
+  --user-bubble: #1c1c21;
+
+  --scroll: #ffffff1c;
+  --scroll-hover: #ffffff30;
+}
+
+:root[data-theme='light'] {
+  --bg: #fbfbf9;
+  --bg-sunk: #f4f4f1;
+  --panel: #ffffff;
+  --panel-2: #fafaf8;
+  --raised: #ffffff;
+  --raised-2: #f6f6f3;
+  --hover: #00000006;
+  --hover-2: #0000000c;
+  --line: #0000000f;
+  --line-strong: #0000001f;
+
+  --text: #16160f;
+  --text-2: #4a4a44;
+  --muted: #63635c;
+  --faint: #6f6f66;
+
+  --accent: #547f11;
+  --accent-ink: #ffffff;
+  --accent-soft: #547f1114;
+  --accent-line: #547f1133;
+
+  --green: #1a7a49;
+  --green-soft: #1a7a4914;
+  --amber: #8f6208;
+  --amber-soft: #8f620814;
+  --violet: #5b4bcc;
+  --violet-soft: #5b4bcc14;
+  --red: #c23a3a;
+  --red-soft: #c23a3a14;
+
+  --add-bg: #2f9e5e14;
+  --add-fg: #227a48;
+  --del-bg: #cc454514;
+  --del-fg: #b03a3a;
+
+  --shadow-pop: 0 18px 50px -14px #1d1d1033, 0 0 0 1px #0000000a;
+  --shadow-soft: 0 1px 2px #00000010;
+  --user-bubble: #eceae4;
+
+  --scroll: #00000022;
+  --scroll-hover: #0000003a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.5;
+  font-feature-settings: 'cv05' 1, 'ss01' 1, 'cv11' 1;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow: hidden;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scroll);
+  border-radius: 99px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scroll-hover);
+  background-clip: content-box;
+  border: 3px solid transparent;
+}
+
+kbd {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1;
+  padding: 3px 5px;
+  border-radius: 5px;
+  color: var(--faint);
+  background: var(--hover-2);
+  border: 1px solid var(--line);
+}
+
+.icon {
+  flex-shrink: 0;
+  display: block;
+}
+
+.shell {
+  height: 100dvh;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  background: var(--bg);
+  position: relative;
+  overflow: hidden;
+}
